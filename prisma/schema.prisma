@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자 (담당자)
+model User {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  avatar    String?
+  role      String    @default("member") // admin, member
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  assignedProjects ProjectAssignee[]
+  comments         Comment[]
+}
+
+// 프로젝트 (상위/하위 프로젝트 모두 포함)
+model Project {
+  id          String    @id @default(cuid())
+  name        String
+  description String?   // 프로젝트 상세 내용
+  goal        String?   // 목표
+  keyResults  String?   // 주요 성과 (KR)
+  status      String    @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED
+  priority    String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  startDate   DateTime?
+  endDate     DateTime?
+  progress    Int       @default(0) // 0-100 진행률
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // 상위/하위 프로젝트 관계
+  parentId    String?
+  parent      Project?  @relation("SubProjects", fields: [parentId], references: [id], onDelete: Cascade)
+  subProjects Project[] @relation("SubProjects")
+
+  // Relations
+  assignees   ProjectAssignee[]
+  comments    Comment[]
+  milestones  Milestone[]
+}
+
+// 프로젝트-담당자 연결 테이블
+model ProjectAssignee {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      String   @default("member") // lead, member
+  createdAt DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+// 댓글 (프로젝트에 대한 코멘트/업데이트)
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 마일스톤 (중요 이정표)
+model Milestone {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  dueDate     DateTime?
+  completed   Boolean   @default(false)
+  projectId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// 명언 (대시보드에 랜덤 표시)
+model Quote {
+  id        String   @id @default(cuid())
+  content   String   // 명언 내용
+  author    String?  // 저자
+  createdAt DateTime @default(now())
+}
