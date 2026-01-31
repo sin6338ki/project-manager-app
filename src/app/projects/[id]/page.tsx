@@ -13,6 +13,9 @@ import {
   Trophy,
   MessageSquare,
   Milestone as MilestoneIcon,
+  CheckSquare,
+  Square,
+  ClipboardList,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -34,6 +37,9 @@ import {
   ProjectPriority,
   PROJECT_LEVEL_LABELS,
   ProjectLevel,
+  AssigneeRole,
+  ASSIGNEE_ROLE_LABELS,
+  ASSIGNEE_ROLE_COLORS,
 } from '@/types'
 
 // 프로젝트 레벨 계산 함수
@@ -143,17 +149,16 @@ export default function ProjectDetailPage() {
             <Badge className={getLevelBadgeColor(projectLevel)}>
               {PROJECT_LEVEL_LABELS[projectLevel]}
             </Badge>
-            {/* Level 2 이상: 상태 표시 */}
+            {/* Level 2 이상: 상태, 우선순위 표시 */}
             {projectLevel >= 2 && (
-              <Badge className={STATUS_COLORS[project.status as ProjectStatus]}>
-                {STATUS_LABELS[project.status as ProjectStatus]}
-              </Badge>
-            )}
-            {/* Level 1 이상: 우선순위 표시 */}
-            {projectLevel >= 1 && (
-              <Badge className={PRIORITY_COLORS[project.priority as ProjectPriority]}>
-                {PRIORITY_LABELS[project.priority as ProjectPriority]}
-              </Badge>
+              <>
+                <Badge className={STATUS_COLORS[project.status as ProjectStatus]}>
+                  {STATUS_LABELS[project.status as ProjectStatus]}
+                </Badge>
+                <Badge className={PRIORITY_COLORS[project.priority as ProjectPriority]}>
+                  {PRIORITY_LABELS[project.priority as ProjectPriority]}
+                </Badge>
+              </>
             )}
           </div>
           {project.description && (
@@ -299,31 +304,89 @@ export default function ProjectDetailPage() {
         </div>
 
         <div className="space-y-6">
-          {/* Level 1 이상: 담당자 표시 */}
+          {/* Level 1 이상: 담당자 및 업무 표시 */}
           {projectLevel >= 1 && (
             <Card>
               <CardHeader>
-                <h2 className="text-lg font-semibold text-gray-900">담당자</h2>
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-blue-500" />
+                  <h2 className="text-lg font-semibold text-gray-900">담당자 및 업무</h2>
+                </div>
               </CardHeader>
               <CardContent>
                 {assignees.length > 0 ? (
-                  <ul className="space-y-3">
-                    {project.assignees?.map((assignee) => (
-                      <li key={assignee.id} className="flex items-center gap-3">
-                        <Avatar
-                          name={assignee.user?.name || ''}
-                          src={assignee.user?.avatar}
-                          size="md"
-                        />
-                        <div>
-                          <p className="font-medium text-gray-900">{assignee.user?.name}</p>
-                          <p className="text-sm text-gray-500">
-                            {assignee.role === 'lead' ? '프로젝트 리드' : '멤버'}
-                          </p>
+                  <div className="space-y-4">
+                    {project.assignees?.map((assignee) => {
+                      const tasks = assignee.tasks || []
+                      const completedCount = tasks.filter((t) => t.completed).length
+                      return (
+                        <div key={assignee.id} className="border border-gray-100 rounded-lg p-3">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Avatar
+                              name={assignee.user?.name || ''}
+                              src={assignee.user?.avatar}
+                              size="md"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-gray-900">{assignee.user?.name}</p>
+                                <Badge className={`${ASSIGNEE_ROLE_COLORS[assignee.role as AssigneeRole] || 'bg-gray-100 text-gray-700'} text-xs`}>
+                                  {ASSIGNEE_ROLE_LABELS[assignee.role as AssigneeRole] || assignee.role}
+                                </Badge>
+                              </div>
+                              {tasks.length > 0 && (
+                                <p className="text-sm text-gray-500">
+                                  <span className="text-xs">
+                                    ({completedCount}/{tasks.length} 완료)
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 업무 목록 */}
+                          {tasks.length > 0 && (
+                            <div className="ml-11 space-y-1.5 mt-2">
+                              {tasks.map((task) => (
+                                <label
+                                  key={task.id}
+                                  className="flex items-center gap-2 cursor-pointer group"
+                                  onClick={async (e) => {
+                                    e.preventDefault()
+                                    try {
+                                      await fetch(`/api/tasks/${task.id}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ completed: !task.completed }),
+                                      })
+                                      fetchProject()
+                                    } catch (err) {
+                                      console.error('Failed to toggle task:', err)
+                                    }
+                                  }}
+                                >
+                                  {task.completed ? (
+                                    <CheckSquare className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                  ) : (
+                                    <Square className="w-4 h-4 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
+                                  )}
+                                  <span
+                                    className={`text-sm ${
+                                      task.completed
+                                        ? 'line-through text-gray-400'
+                                        : 'text-gray-700'
+                                    }`}
+                                  >
+                                    {task.title}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </li>
-                    ))}
-                  </ul>
+                      )
+                    })}
+                  </div>
                 ) : (
                   <p className="text-gray-500 text-sm">배정된 담당자가 없습니다</p>
                 )}
@@ -376,6 +439,11 @@ export default function ProjectDetailPage() {
       >
         <ProjectForm
           project={project}
+          parentProject={project.parent || null}
+          onSuccess={() => {
+            setShowEditModal(false)
+            fetchProject()
+          }}
         />
       </Modal>
 

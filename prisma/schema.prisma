@@ -23,6 +23,7 @@ model User {
   // Relations
   assignedProjects ProjectAssignee[]
   comments         Comment[]
+  calendarAttendees CalendarAttendee[]
 }
 
 // 프로젝트 (상위/하위 프로젝트 모두 포함)
@@ -61,8 +62,21 @@ model ProjectAssignee {
 
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks     AssigneeTask[]
 
   @@unique([projectId, userId])
+}
+
+// 담당자별 업무 (체크박스로 완료 여부 관리)
+model AssigneeTask {
+  id           String   @id @default(cuid())
+  title        String   // 업무 내용
+  completed    Boolean  @default(false)
+  assigneeId   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignee     ProjectAssignee @relation(fields: [assigneeId], references: [id], onDelete: Cascade)
 }
 
 // 댓글 (프로젝트에 대한 코멘트/업데이트)
@@ -90,6 +104,37 @@ model Milestone {
   updatedAt   DateTime  @updatedAt
 
   project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// 캘린더 일정/회의
+model CalendarEvent {
+  id          String    @id @default(cuid())
+  type        String    // schedule(일정), meeting(회의)
+  title       String
+  date        DateTime  // 일정 날짜
+  startTime   String?   // 시작 시간 (HH:mm)
+  endTime     String?   // 종료 시간 (HH:mm)
+  location    String?   // 장소 (일정)
+  content     String?   // 내용 (일정)
+  purpose     String?   // 회의 목적 (회의)
+  result      String?   // 회의 결과 (회의)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  attendees   CalendarAttendee[]
+}
+
+// 캘린더 일정 참석자
+model CalendarAttendee {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  event     CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
 }
 
 // 명언 (대시보드에 랜덤 표시)

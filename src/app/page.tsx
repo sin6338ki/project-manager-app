@@ -274,7 +274,7 @@ export default function Dashboard() {
                     <p className="text-xs text-gray-500 mt-1 line-clamp-2">{topProject.goal}</p>
                   )}
                   <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                    <span>{topProject.subProjects?.length || 0}개 하위 프로젝트</span>
+                    <span>{getAllSubProjects(topProject).length}개 하위 프로젝트</span>
                   </div>
                 </div>
 
@@ -354,11 +354,9 @@ function SubProjectCard({ project, depth }: { project: Project; depth: number })
 
           {/* 상태 및 우선순위 배지 */}
           <div className="flex flex-wrap gap-1 mb-2">
-            {isLevel2OrMore && (
-              <Badge className={`${STATUS_COLORS[project.status as ProjectStatus]} text-xs`}>
-                {STATUS_LABELS[project.status as ProjectStatus]}
-              </Badge>
-            )}
+            <Badge className={`${STATUS_COLORS[project.status as ProjectStatus]} text-xs`}>
+              {STATUS_LABELS[project.status as ProjectStatus]}
+            </Badge>
             <Badge className={`${PRIORITY_COLORS[project.priority as ProjectPriority]} text-xs`}>
               {project.priority}
             </Badge>

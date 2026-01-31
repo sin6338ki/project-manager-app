@@ -7,7 +7,15 @@ export async function GET() {
       include: {
         assignedProjects: {
           include: {
-            project: true,
+            project: {
+              include: {
+                parent: {
+                  include: {
+                    parent: true,
+                  },
+                },
+              },
+            },
           },
         },
         _count: {

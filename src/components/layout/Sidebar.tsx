@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Calendar,
+  CalendarDays,
   Users,
   BarChart3,
   Settings,
@@ -22,6 +23,7 @@ const navigation = [
   { name: '대시보드', href: '/', icon: LayoutDashboard },
   { name: '프로젝트', href: '/projects', icon: FolderKanban },
   { name: '타임라인', href: '/timeline', icon: Calendar },
+  { name: '캘린더', href: '/calendar', icon: CalendarDays },
   { name: '담당자별 업무', href: '/members', icon: Users },
   { name: '현황 분석', href: '/analytics', icon: BarChart3 },
 ]

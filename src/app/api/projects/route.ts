@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// 담당자 include (tasks 포함)
+const assigneesInclude = {
+  include: {
+    user: true,
+    tasks: {
+      orderBy: {
+        createdAt: 'asc' as const,
+      },
+    },
+  },
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const parentId = searchParams.get('parentId')
     const userId = searchParams.get('userId')
+    const allFlat = searchParams.get('allFlat') // 모든 프로젝트를 플랫하게 반환
 
     const where: Record<string, unknown> = {}
 
@@ -14,10 +27,12 @@ export async function GET(request: NextRequest) {
       where.status = status
     }
 
-    if (parentId === 'null') {
-      where.parentId = null
-    } else if (parentId) {
-      where.parentId = parentId
+    if (!allFlat) {
+      if (parentId === 'null') {
+        where.parentId = null
+      } else if (parentId) {
+        where.parentId = parentId
+      }
     }
 
     if (userId) {
@@ -34,18 +49,20 @@ export async function GET(request: NextRequest) {
         parent: true,
         subProjects: {
           include: {
-            assignees: {
+            assignees: assigneesInclude,
+            subProjects: {
               include: {
-                user: true,
+                assignees: assigneesInclude,
+                subProjects: {
+                  include: {
+                    assignees: assigneesInclude,
+                  },
+                },
               },
             },
           },
         },
-        assignees: {
-          include: {
-            user: true,
-          },
-        },
+        assignees: assigneesInclude,
         milestones: true,
         _count: {
           select: {
@@ -69,6 +86,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
+interface AssigneeInput {
+  userId: string
+  role?: string
+  tasks?: string[]
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -83,7 +106,33 @@ export async function POST(request: NextRequest) {
       endDate,
       parentId,
       assigneeIds,
+      assigneesWithTasks,
     } = body
+
+    // assigneesWithTasks가 있으면 tasks 포함 생성, 아니면 기존 방식
+    let assigneesCreate
+    if (assigneesWithTasks?.length) {
+      assigneesCreate = {
+        create: assigneesWithTasks.map((a: AssigneeInput) => ({
+          userId: a.userId,
+          role: a.role || 'support',
+          tasks: a.tasks?.length
+            ? {
+                create: a.tasks.map((title: string) => ({
+                  title,
+                })),
+              }
+            : undefined,
+        })),
+      }
+    } else if (assigneeIds?.length) {
+      assigneesCreate = {
+        create: assigneeIds.map((userId: string, index: number) => ({
+          userId,
+          role: index === 0 ? 'lead' : 'support',
+        })),
+      }
+    }
 
     const project = await prisma.project.create({
       data: {
@@ -96,23 +145,12 @@ export async function POST(request: NextRequest) {
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         parentId: parentId || null,
-        assignees: assigneeIds?.length
-          ? {
-              create: assigneeIds.map((userId: string, index: number) => ({
-                userId,
-                role: index === 0 ? 'lead' : 'member',
-              })),
-            }
-          : undefined,
+        assignees: assigneesCreate,
       },
       include: {
         parent: true,
         subProjects: true,
-        assignees: {
-          include: {
-            user: true,
-          },
-        },
+        assignees: assigneesInclude,
         milestones: true,
       },
     })

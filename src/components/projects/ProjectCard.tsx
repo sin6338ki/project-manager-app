@@ -72,17 +72,16 @@ export function ProjectCard({ project, showLevel = false }: ProjectCardProps) {
                 {PROJECT_LEVEL_LABELS[projectLevel]}
               </Badge>
             )}
-            {/* Level 2 이상: 상태 표시 */}
+            {/* Level 2 이상: 상태, 우선순위 표시 */}
             {projectLevel >= 2 && (
-              <Badge className={STATUS_COLORS[project.status as ProjectStatus]}>
-                {STATUS_LABELS[project.status as ProjectStatus]}
-              </Badge>
-            )}
-            {/* Level 1 이상: 우선순위 표시 */}
-            {projectLevel >= 1 && (
-              <Badge className={PRIORITY_COLORS[project.priority as ProjectPriority]}>
-                {PRIORITY_LABELS[project.priority as ProjectPriority]}
-              </Badge>
+              <>
+                <Badge className={STATUS_COLORS[project.status as ProjectStatus]}>
+                  {STATUS_LABELS[project.status as ProjectStatus]}
+                </Badge>
+                <Badge className={PRIORITY_COLORS[project.priority as ProjectPriority]}>
+                  {PRIORITY_LABELS[project.priority as ProjectPriority]}
+                </Badge>
+              </>
             )}
           </div>
 

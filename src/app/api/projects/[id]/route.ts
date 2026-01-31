@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+const assigneesInclude = {
+  include: {
+    user: true,
+    tasks: {
+      orderBy: {
+        createdAt: 'asc' as const,
+      },
+    },
+  },
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,18 +24,15 @@ export async function GET(
         parent: true,
         subProjects: {
           include: {
-            assignees: {
+            assignees: assigneesInclude,
+            subProjects: {
               include: {
-                user: true,
+                assignees: assigneesInclude,
               },
             },
           },
         },
-        assignees: {
-          include: {
-            user: true,
-          },
-        },
+        assignees: assigneesInclude,
         comments: {
           include: {
             user: true,
@@ -55,6 +63,12 @@ export async function GET(
   }
 }
 
+interface AssigneeWithTasksInput {
+  userId: string
+  role?: string
+  tasks?: string[]
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -72,7 +86,9 @@ export async function PATCH(
       startDate,
       endDate,
       progress,
+      parentId,
       assigneeIds,
+      assigneesWithTasks,
     } = body
 
     const updateData: Record<string, unknown> = {}
@@ -83,13 +99,39 @@ export async function PATCH(
     if (keyResults !== undefined) updateData.keyResults = keyResults
     if (status !== undefined) updateData.status = status
     if (priority !== undefined) updateData.priority = priority
+    if (parentId !== undefined) updateData.parentId = parentId || null
     if (startDate !== undefined)
       updateData.startDate = startDate ? new Date(startDate) : null
     if (endDate !== undefined)
       updateData.endDate = endDate ? new Date(endDate) : null
-    if (progress !== undefined) updateData.progress = progress
+    if (progress !== undefined) updateData.progress = parseInt(String(progress), 10)
 
-    if (assigneeIds !== undefined) {
+    // assigneesWithTasks가 있으면 tasks 포함 업데이트
+    if (assigneesWithTasks !== undefined) {
+      await prisma.projectAssignee.deleteMany({
+        where: { projectId: id },
+      })
+
+      if (assigneesWithTasks.length > 0) {
+        for (let i = 0; i < assigneesWithTasks.length; i++) {
+          const a: AssigneeWithTasksInput = assigneesWithTasks[i]
+          await prisma.projectAssignee.create({
+            data: {
+              projectId: id,
+              userId: a.userId,
+              role: a.role || 'support',
+              tasks: a.tasks?.length
+                ? {
+                    create: a.tasks.map((title: string) => ({
+                      title,
+                    })),
+                  }
+                : undefined,
+            },
+          })
+        }
+      }
+    } else if (assigneeIds !== undefined) {
       await prisma.projectAssignee.deleteMany({
         where: { projectId: id },
       })
@@ -99,7 +141,7 @@ export async function PATCH(
           data: assigneeIds.map((userId: string, index: number) => ({
             projectId: id,
             userId,
-            role: index === 0 ? 'lead' : 'member',
+            role: index === 0 ? 'lead' : 'support',
           })),
         })
       }
@@ -111,11 +153,7 @@ export async function PATCH(
       include: {
         parent: true,
         subProjects: true,
-        assignees: {
-          include: {
-            user: true,
-          },
-        },
+        assignees: assigneesInclude,
         milestones: true,
       },
     })

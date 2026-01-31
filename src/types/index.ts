@@ -1,7 +1,7 @@
 export type ProjectStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'
 export type ProjectPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type UserRole = 'admin' | 'member'
-export type AssigneeRole = 'lead' | 'member'
+export type AssigneeRole = 'lead' | 'main' | 'support'
 
 // 프로젝트 레벨 타입
 // Level 0: 최상위 프로젝트 (연간/대형) - 목표, 성과만
@@ -46,6 +46,15 @@ export interface Project {
   updatedAt: Date
 }
 
+export interface AssigneeTask {
+  id: string
+  title: string
+  completed: boolean
+  assigneeId: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 export interface ProjectAssignee {
   id: string
   projectId: string
@@ -53,6 +62,7 @@ export interface ProjectAssignee {
   role: AssigneeRole
   project?: Project
   user?: User
+  tasks?: AssigneeTask[]
   createdAt: Date
 }
 
@@ -96,6 +106,18 @@ export const STATUS_COLORS: Record<ProjectStatus, string> = {
   NOT_STARTED: 'bg-gray-100 text-gray-800',
   IN_PROGRESS: 'bg-blue-100 text-blue-800',
   COMPLETED: 'bg-green-100 text-green-800',
+}
+
+export const ASSIGNEE_ROLE_LABELS: Record<AssigneeRole, string> = {
+  lead: '리더',
+  main: '메인',
+  support: '보조',
+}
+
+export const ASSIGNEE_ROLE_COLORS: Record<AssigneeRole, string> = {
+  lead: 'bg-purple-100 text-purple-800',
+  main: 'bg-blue-100 text-blue-800',
+  support: 'bg-gray-100 text-gray-700',
 }
 
 export const PRIORITY_COLORS: Record<ProjectPriority, string> = {
