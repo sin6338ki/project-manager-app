@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Filter, ChevronRight, ChevronDown, Calendar, Users, GripVertical } from 'lucide-react'
+import { Plus, ChevronRight, ChevronDown, Calendar, Users, GripVertical } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Button } from '@/components/ui/Button'
-import { Select } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
 import { AvatarGroup } from '@/components/ui/Avatar'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -29,7 +28,7 @@ interface DragState {
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [statusFilter, setStatusFilter] = useState<string>('ACTIVE')
   const [priorityFilter, setPriorityFilter] = useState<string>('')
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
   const [dragState, setDragState] = useState<DragState>({
@@ -41,12 +40,11 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects()
-  }, [statusFilter])
+  }, [])
 
   const fetchProjects = async () => {
     try {
-      let url = '/api/projects?parentId=null'
-      if (statusFilter) url += `&status=${statusFilter}`
+      const url = '/api/projects?parentId=null'
       const res = await fetch(url)
       const data = await res.json()
       setProjects(data)
@@ -68,9 +66,15 @@ export default function ProjectsPage() {
     }
   }
 
-  const filteredProjects = priorityFilter
-    ? projects.filter((p) => p.priority === priorityFilter)
-    : projects
+  const filteredProjects = projects.filter((p) => {
+    if (statusFilter === 'ACTIVE') {
+      if (p.status === 'COMPLETED') return false
+    } else if (statusFilter === 'NOT_STARTED' || statusFilter === 'IN_PROGRESS' || statusFilter === 'COMPLETED') {
+      if (p.status !== statusFilter) return false
+    }
+    if (priorityFilter && p.priority !== priorityFilter) return false
+    return true
+  })
 
   const toggleExpand = (id: string) => {
     setExpandedProjects((prev) => {
@@ -196,32 +200,28 @@ export default function ProjectsPage() {
         </Link>
       </div>
 
-      <div className="flex items-center gap-4 p-4 bg-white rounded-lg border border-gray-200">
-        <Filter className="w-5 h-5 text-gray-400" />
-        <Select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          options={[
-            { value: '', label: '모든 상태' },
-            ...Object.entries(STATUS_LABELS).map(([value, label]) => ({
-              value,
-              label,
-            })),
-          ]}
-          className="w-40"
-        />
-        <Select
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-          options={[
-            { value: '', label: '모든 우선순위' },
-            ...Object.entries(PRIORITY_LABELS).map(([value, label]) => ({
-              value,
-              label,
-            })),
-          ]}
-          className="w-40"
-        />
+      <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+        <div className="flex items-center gap-1">
+          {[
+            { value: 'ACTIVE', label: '진행중 + 시작 전' },
+            { value: 'NOT_STARTED', label: '시작 전' },
+            { value: 'IN_PROGRESS', label: '진행중' },
+            { value: 'COMPLETED', label: '완료' },
+            { value: '', label: '전체' },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setStatusFilter(opt.value)}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                statusFilter === opt.value
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {moving && (
@@ -277,7 +277,7 @@ export default function ProjectsPage() {
       ) : (
         <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
           <p className="text-gray-500 mb-4">
-            {statusFilter || priorityFilter
+            {statusFilter !== '' || priorityFilter
               ? '조건에 맞는 프로젝트가 없습니다'
               : '아직 프로젝트가 없습니다'}
           </p>

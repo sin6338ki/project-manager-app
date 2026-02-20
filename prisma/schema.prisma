@@ -144,3 +144,14 @@ model Quote {
   author    String?  // 저자
   createdAt DateTime @default(now())
 }
+
+// 주간 책 추천
+model BookRecommendation {
+  id          String   @id @default(cuid())
+  title       String   // 책 제목
+  author      String?  // 저자
+  description String?  // 추천 이유/한줄 소개
+  weekStart   DateTime @unique // 해당 주의 월요일 날짜 (주 식별자, 주당 1개)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

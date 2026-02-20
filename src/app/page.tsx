@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Quote, X, Trash2, Calendar, Users, ChevronRight } from 'lucide-react'
+import { Plus, Quote, X, Trash2, Calendar, Users, ChevronRight, BookOpen } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Button } from '@/components/ui/Button'
@@ -16,6 +16,14 @@ interface QuoteData {
   id: string
   content: string
   author: string | null
+}
+
+interface BookData {
+  id: string
+  title: string
+  author: string | null
+  description: string | null
+  weekStart: string
 }
 
 // 모든 하위 프로젝트를 재귀적으로 가져오는 함수
@@ -40,11 +48,15 @@ export default function Dashboard() {
   const [allQuotes, setAllQuotes] = useState<QuoteData[]>([])
   const [newQuoteContent, setNewQuoteContent] = useState('')
   const [newQuoteAuthor, setNewQuoteAuthor] = useState('')
+  const [book, setBook] = useState<BookData | null>(null)
+  const [showBookModal, setShowBookModal] = useState(false)
+  const [bookForm, setBookForm] = useState({ title: '', author: '', description: '' })
   const { isAdmin } = useAuth()
 
   useEffect(() => {
     fetchProjects()
     fetchRandomQuote()
+    fetchBook()
   }, [])
 
   const fetchRandomQuote = async () => {
@@ -110,6 +122,42 @@ export default function Dashboard() {
     setShowQuoteModal(true)
   }
 
+  const fetchBook = async () => {
+    try {
+      const res = await fetch('/api/books')
+      const data = await res.json()
+      setBook(data)
+    } catch (error) {
+      console.error('Failed to fetch book:', error)
+    }
+  }
+
+  const openBookModal = () => {
+    setBookForm({
+      title: book?.title || '',
+      author: book?.author || '',
+      description: book?.description || '',
+    })
+    setShowBookModal(true)
+  }
+
+  const handleSaveBook = async () => {
+    if (!bookForm.title.trim()) return
+    try {
+      const res = await fetch('/api/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookForm),
+      })
+      if (res.ok) {
+        fetchBook()
+        setShowBookModal(false)
+      }
+    } catch (error) {
+      console.error('Failed to save book:', error)
+    }
+  }
+
   const fetchProjects = async () => {
     try {
       const res = await fetch('/api/projects?parentId=null')
@@ -135,20 +183,24 @@ export default function Dashboard() {
       {/* 명언 섹션 */}
       {randomQuote && (
         <div
-          className={`bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg p-4 ${
-            isAdmin ? 'cursor-pointer hover:from-blue-100 hover:to-indigo-100' : ''
-          } transition-colors`}
+          className={`relative bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl p-6 shadow-lg overflow-hidden ${
+            isAdmin ? 'cursor-pointer hover:from-indigo-700 hover:to-blue-700' : ''
+          } transition-all duration-300`}
           onClick={isAdmin ? openQuoteModal : undefined}
         >
-          <div className="flex items-start gap-3">
-            <Quote className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-gray-800 italic">&ldquo;{randomQuote.content}&rdquo;</p>
-              {randomQuote.author && (
-                <p className="text-sm text-gray-500 mt-1">- {randomQuote.author}</p>
-              )}
-            </div>
+          <div className="absolute top-3 left-4 text-indigo-300 opacity-40 text-7xl font-serif leading-none select-none">&ldquo;</div>
+          <div className="relative z-10 flex flex-col items-center text-center px-6 py-2">
+            <Quote className="w-6 h-6 text-indigo-200 mb-3" />
+            <p className="text-white text-lg font-medium italic leading-relaxed">
+              &ldquo;{randomQuote.content}&rdquo;
+            </p>
+            {randomQuote.author && (
+              <p className="text-indigo-200 text-sm mt-3 font-semibold tracking-wide">
+                — {randomQuote.author}
+              </p>
+            )}
           </div>
+          <div className="absolute bottom-3 right-4 text-indigo-300 opacity-40 text-7xl font-serif leading-none select-none rotate-180">&ldquo;</div>
         </div>
       )}
 
@@ -166,6 +218,44 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* 이번 주 책 추천 섹션 */}
+      {book ? (
+        <div
+          className={`relative bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-5 shadow-lg overflow-hidden ${
+            isAdmin ? 'cursor-pointer hover:from-amber-600 hover:to-orange-600' : ''
+          } transition-all duration-300`}
+          onClick={isAdmin ? openBookModal : undefined}
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0 bg-white/20 rounded-lg p-3">
+              <BookOpen className="w-7 h-7 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-amber-100 text-xs font-semibold uppercase tracking-widest mb-1">이번 주 추천 도서</p>
+              <p className="text-white text-lg font-bold leading-tight truncate">{book.title}</p>
+              {book.author && (
+                <p className="text-amber-100 text-sm mt-0.5">저자: {book.author}</p>
+              )}
+              {book.description && (
+                <p className="text-amber-50 text-sm mt-1 line-clamp-2">{book.description}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div
+          className={`bg-amber-50 border border-dashed border-amber-300 rounded-lg p-4 ${
+            isAdmin ? 'cursor-pointer hover:bg-amber-100' : ''
+          } transition-colors`}
+          onClick={isAdmin ? openBookModal : undefined}
+        >
+          <div className="flex items-center justify-center gap-2 text-amber-600">
+            <BookOpen className="w-5 h-5" />
+            <span>{isAdmin ? '클릭하여 이번 주 추천 도서를 등록하세요' : '이번 주 추천 도서가 없습니다'}</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
@@ -178,6 +268,47 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* 책 추천 등록/수정 모달 */}
+      {showBookModal && isAdmin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">이번 주 추천 도서 등록</h2>
+              <button onClick={() => setShowBookModal(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <input
+                type="text"
+                placeholder="책 제목 *"
+                value={bookForm.title}
+                onChange={(e) => setBookForm((f) => ({ ...f, title: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+              <input
+                type="text"
+                placeholder="저자 (선택사항)"
+                value={bookForm.author}
+                onChange={(e) => setBookForm((f) => ({ ...f, author: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+              <textarea
+                placeholder="추천 이유 또는 한줄 소개 (선택사항)"
+                value={bookForm.description}
+                onChange={(e) => setBookForm((f) => ({ ...f, description: e.target.value }))}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-2 px-4 pb-4">
+              <Button variant="secondary" onClick={() => setShowBookModal(false)}>취소</Button>
+              <Button onClick={handleSaveBook} disabled={!bookForm.title.trim()}>저장</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 명언 관리 모달 */}
       {showQuoteModal && (
@@ -252,10 +383,10 @@ export default function Dashboard() {
       )}
 
       {/* 트렐로 스타일 칸반 보드 */}
-      {projects.length > 0 ? (
+      {projects.filter(p => p.status !== 'COMPLETED').length > 0 ? (
         <div className="overflow-x-auto pb-4">
           <div className="flex gap-4 min-w-max">
-            {projects.map((topProject) => (
+            {projects.filter(p => p.status !== 'COMPLETED').map((topProject) => (
               <div
                 key={topProject.id}
                 className="w-80 flex-shrink-0 bg-gray-100 rounded-lg"
@@ -280,9 +411,9 @@ export default function Dashboard() {
 
                 {/* 하위 프로젝트 카드들 */}
                 <div className="p-2 space-y-2 max-h-[calc(100vh-350px)] overflow-y-auto">
-                  {topProject.subProjects && topProject.subProjects.length > 0 ? (
+                  {topProject.subProjects && topProject.subProjects.filter(p => p.status !== 'COMPLETED').length > 0 ? (
                     <>
-                      {topProject.subProjects.map((subProject) => (
+                      {topProject.subProjects.filter(p => p.status !== 'COMPLETED').map((subProject) => (
                         <SubProjectCard key={subProject.id} project={subProject} depth={1} />
                       ))}
                     </>
@@ -396,9 +527,9 @@ function SubProjectCard({ project, depth }: { project: Project; depth: number })
       </Link>
 
       {/* 중첩된 하위 프로젝트 */}
-      {project.subProjects && project.subProjects.length > 0 && (
+      {project.subProjects && project.subProjects.filter(s => s.status !== 'COMPLETED').length > 0 && (
         <div className="ml-3 space-y-2">
-          {project.subProjects.map((sub) => (
+          {project.subProjects.filter(s => s.status !== 'COMPLETED').map((sub) => (
             <SubProjectCard key={sub.id} project={sub} depth={depth + 1} />
           ))}
         </div>
