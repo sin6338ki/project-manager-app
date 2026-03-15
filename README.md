@@ -2,7 +2,17 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+### 최초 실행 또는 스키마 변경 후 DB 마이그레이션
+
+기존 `dev.db`가 있고 스키마가 변경된 경우, 서버 실행 전에 아래 명령어로 DB를 동기화하세요.
+
+```bash
+npx prisma db push  # 현재 스키마에 맞게 DB 업데이트 (기존 데이터 유지)
+```
+
+> `prisma db push`는 스키마에 없는 컬럼/테이블을 추가하며, 기존 데이터는 그대로 유지됩니다.
+
+### 서버 실행
 
 ```bash
 npm run dev
