@@ -7,11 +7,18 @@ export async function GET() {
       include: {
         assignedProjects: {
           include: {
+            tasks: {
+              orderBy: { createdAt: 'asc' },
+            },
             project: {
               include: {
                 parent: {
                   include: {
-                    parent: true,
+                    parent: {
+                      include: {
+                        parent: true,
+                      },
+                    },
                   },
                 },
               },

@@ -19,13 +19,11 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const parentId = searchParams.get('parentId')
     const userId = searchParams.get('userId')
-    const allFlat = searchParams.get('allFlat') // 모든 프로젝트를 플랫하게 반환
+    const allFlat = searchParams.get('allFlat')
 
     const where: Record<string, unknown> = {}
 
-    if (status) {
-      where.status = status
-    }
+    if (status) where.status = status
 
     if (!allFlat) {
       if (parentId === 'null') {
@@ -36,44 +34,47 @@ export async function GET(request: NextRequest) {
     }
 
     if (userId) {
-      where.assignees = {
-        some: {
-          userId: userId,
-        },
-      }
+      where.assignees = { some: { userId } }
     }
 
     const projects = await prisma.project.findMany({
       where,
       include: {
-        parent: true,
+        parent: {
+          include: {
+            parent: {
+              include: { parent: true },
+            },
+          },
+        },
         subProjects: {
           include: {
+            parent: { select: { id: true, parentId: true } },
             assignees: assigneesInclude,
             subProjects: {
               include: {
+                parent: { select: { id: true, parentId: true } },
                 assignees: assigneesInclude,
                 subProjects: {
                   include: {
+                    parent: { select: { id: true, parentId: true } },
                     assignees: assigneesInclude,
                   },
                 },
               },
             },
           },
+          orderBy: { createdAt: 'asc' },
         },
         assignees: assigneesInclude,
         milestones: true,
         _count: {
-          select: {
-            subProjects: true,
-            comments: true,
-          },
+          select: { subProjects: true, comments: true },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: parentId === 'null'
+        ? [{ sortOrder: 'asc' as const }, { createdAt: 'asc' as const }]
+        : { createdAt: 'desc' as const },
     })
 
     return NextResponse.json(projects)
@@ -88,7 +89,6 @@ export async function GET(request: NextRequest) {
 
 interface AssigneeInput {
   userId: string
-  role?: string
   tasks?: string[]
 }
 
@@ -109,46 +109,56 @@ export async function POST(request: NextRequest) {
       assigneesWithTasks,
     } = body
 
-    // assigneesWithTasks가 있으면 tasks 포함 생성, 아니면 기존 방식
+    // assigneesWithTasks가 있으면 tasks 포함 생성, 아니면 assigneeIds 방식
     let assigneesCreate
     if (assigneesWithTasks?.length) {
       assigneesCreate = {
         create: assigneesWithTasks.map((a: AssigneeInput) => ({
           userId: a.userId,
-          role: a.role || 'support',
+          role: 'member',
           tasks: a.tasks?.length
-            ? {
-                create: a.tasks.map((title: string) => ({
-                  title,
-                })),
-              }
+            ? { create: a.tasks.map((title: string) => ({ title })) }
             : undefined,
         })),
       }
     } else if (assigneeIds?.length) {
       assigneesCreate = {
-        create: assigneeIds.map((userId: string, index: number) => ({
+        create: assigneeIds.map((userId: string) => ({
           userId,
-          role: index === 0 ? 'lead' : 'support',
+          role: 'member',
         })),
       }
+    }
+
+    // 최상위 프로젝트(parentId 없음)이면 sortOrder를 현재 최대값+1로 설정
+    let sortOrder = 0
+    if (!parentId) {
+      const last = await prisma.project.findFirst({
+        where: { parentId: null },
+        orderBy: { sortOrder: 'desc' },
+        select: { sortOrder: true },
+      })
+      sortOrder = (last?.sortOrder ?? -1) + 1
     }
 
     const project = await prisma.project.create({
       data: {
         name,
         description,
-        goal,
-        keyResults,
+        goal: goal || null,
+        keyResults: keyResults || null,
         status: status || 'NOT_STARTED',
         priority: priority || 'MEDIUM',
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         parentId: parentId || null,
+        sortOrder,
         assignees: assigneesCreate,
       },
       include: {
-        parent: true,
+        parent: {
+          include: { parent: { include: { parent: true } } },
+        },
         subProjects: true,
         assignees: assigneesInclude,
         milestones: true,

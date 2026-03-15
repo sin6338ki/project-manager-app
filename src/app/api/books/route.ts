@@ -12,8 +12,19 @@ function getWeekStart(date: Date): Date {
 }
 
 // GET /api/books - 이번 주 책 추천 조회 (없으면 가장 최근 주차 것 반환)
-export async function GET() {
+// GET /api/books?all=true - 전체 책 추천 목록 조회
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const all = searchParams.get('all')
+
+    if (all === 'true') {
+      const books = await prisma.bookRecommendation.findMany({
+        orderBy: { weekStart: 'desc' },
+      })
+      return NextResponse.json(books)
+    }
+
     const thisWeek = getWeekStart(new Date())
 
     // 이번 주 책 추천 조회

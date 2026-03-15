@@ -15,8 +15,10 @@ import {
   PRIORITY_LABELS,
   STATUS_COLORS,
   PRIORITY_COLORS,
+  PROJECT_LEVEL_COLORS,
   ProjectStatus,
   ProjectPriority,
+  getProjectLevel,
 } from '@/types'
 
 interface DragState {
@@ -371,7 +373,7 @@ function TopProjectCard({
             </div>
           </div>
           <div className="flex items-center gap-2 ml-4">
-            <span className="text-sm text-gray-500">{subCount}개 하위 프로젝트</span>
+            <span className="text-sm text-gray-500">{subCount}개 상위 프로젝트</span>
             <Link href={`/projects/new?parentId=${project.id}`}>
               <Button size="sm" variant="secondary">
                 <Plus className="w-3 h-3 mr-1" />
@@ -426,10 +428,12 @@ function SubProjectNestedCard({
       avatar: a.user?.avatar,
     })) || []
 
-  const borderColor = depth === 1 ? 'border-l-blue-400' : 'border-l-green-400'
-  const levelLabel = depth === 1 ? '분기별' : '하위'
-  const levelBadgeColor =
-    depth === 1 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+  const level = getProjectLevel(project)
+  const borderColor =
+    level === 1 ? 'border-l-blue-400' : level === 2 ? 'border-l-green-400' : 'border-l-orange-400'
+  const levelLabelMap: Record<number, string> = { 1: '상위', 2: '하위', 3: '최하위' }
+  const levelLabel = levelLabelMap[level] ?? '상위'
+  const levelBadgeColor = PROJECT_LEVEL_COLORS[level as 1 | 2 | 3]
 
   const isDragging = drag.dragState.draggedId === project.id
   const isOver = drag.dragState.dropTargetId === project.id
@@ -444,7 +448,7 @@ function SubProjectNestedCard({
           ? 'ring-2 ring-blue-300 shadow-md border-blue-400'
           : 'border-gray-200'
       }`}
-      style={{ marginLeft: `${(depth - 1) * 16}px` }}
+      style={{ marginLeft: `${(level - 1) * 16}px` }}
       draggable
       onDragStart={(e) => {
         e.stopPropagation()
@@ -481,7 +485,7 @@ function SubProjectNestedCard({
               {project.name}
             </Link>
             <Badge className={`${levelBadgeColor} text-xs`}>{levelLabel}</Badge>
-            {depth >= 2 && (
+            {level >= 2 && (
               <>
                 <Badge className={`${STATUS_COLORS[project.status as ProjectStatus]} text-xs`}>
                   {STATUS_LABELS[project.status as ProjectStatus]}
@@ -518,7 +522,7 @@ function SubProjectNestedCard({
             {assignees.length > 0 && (
               <div className="flex items-center gap-1">
                 <Users className="w-3 h-3 text-gray-400" />
-                <AvatarGroup users={assignees} max={3} size="sm" />
+                <AvatarGroup users={assignees} max={3} />
               </div>
             )}
 

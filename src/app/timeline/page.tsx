@@ -179,8 +179,9 @@ export default function TimelinePage() {
   const getDepthLabel = (depth: number) => {
     switch (depth) {
       case 0: return '최상위'
-      case 1: return '분기별'
-      default: return '하위'
+      case 1: return '상위'
+      case 2: return '하위'
+      default: return '최하위'
     }
   }
 
@@ -379,7 +380,7 @@ export default function TimelinePage() {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-1 h-3 rounded bg-blue-500" />
-          <span>분기별</span>
+          <span>상위</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-1 h-3 rounded bg-green-500" />
